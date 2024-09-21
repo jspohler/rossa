@@ -24,7 +24,7 @@ load_dotenv()
 
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
-db = init_database(database_user, database_password, database_host, database_port, database_name)
+
 
 def get_sql_chain(db):
   template = """
@@ -102,10 +102,11 @@ if "chat_history" not in st.session_state:
       AIMessage(content="Hallo , ich bin das Assistant, mein Name ist Rossa, ich dir helfen Informationen über deine Kollegen oder ich diskutiere ganz normal mit dir über alles ?"),
     ]
 
+db = init_database(database_user, database_password, database_host, database_port, database_name)
 
 st.session_state.db = db
 
-st.set_page_config(page_title="Chat with Rossa", page_icon=":rossman_icon_Evl_2.ico:")
+st.set_page_config(page_title="Chat with Rossa", page_icon="🤖")
 
 st.title("Chat with Rossa")
 
@@ -124,7 +125,7 @@ if user_query is not None and user_query.strip() != "":
     with st.chat_message("Human"):
         st.markdown(user_query)
         
-    with st.chat_message("AI"):
+    with st.chat_message("AI", avatar="🤖"):
       
         response = get_response(user_query, st.session_state.db, st.session_state.chat_history)
         st.markdown(response)
