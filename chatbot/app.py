@@ -109,6 +109,12 @@ if "chat_history" not in st.session_state:
 
 load_dotenv()
 init_openai()  # Initialise la configuration OpenAI via Azure
+user=os.getenv("DATABASE_USER")
+password=os.getenv("DATABASE_PASSWORD")
+host= os.getenv("DATABASE_HOST")
+port= os.getenv("DATABASE_PORT")
+database_name= os.getenv("DATABASE_NAME")
+init_database(user, password,host , port , database_name)
 
 st.set_page_config(page_title="RossmAi", page_icon=":speech_balloon:")
 
