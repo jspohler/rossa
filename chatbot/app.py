@@ -1,19 +1,26 @@
-from dotenv import load_dotenv
+from dotenv import load_dotenv 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_community.utilities import SQLDatabase
 from langchain_core.output_parsers import StrOutputParser
-from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
+import openai
 import streamlit as st
+import os
 
 def init_database(user: str, password: str, host: str, port: str, database: str) -> SQLDatabase:
-  db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
-  return SQLDatabase.from_uri(db_uri)
+    db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
+    return SQLDatabase.from_uri(db_uri)
+
+# Azure OpenAI client initialization
+def init_openai():
+    openai.api_type = "azure"
+    openai.api_base = os.getenv("AZURE_OPENAI_ENDPOINT")  # URL de votre instance Azure OpenAI
+    openai.api_version = "2023-05-15"  # Version de l'API à utiliser
+    openai.api_key = os.getenv("AZURE_OPENAI_API_KEY")  # Votre clé d'API Azure OpenAI
 
 def get_sql_chain(db):
-  template = """
+    template = """
     You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
     Based on the table schema below, write a SQL query that would answer the user's question. Take the conversation history into account.
     
@@ -35,25 +42,31 @@ def get_sql_chain(db):
     SQL Query:
     """
     
-  prompt = ChatPromptTemplate.from_template(template)
+    prompt = ChatPromptTemplate.from_template(template)
   
-  # llm = ChatOpenAI(model="gpt-4-0125-preview")
-  llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
-  
-  def get_schema(_):
-    return db.get_table_info()
-  
-  return (
-    RunnablePassthrough.assign(schema=get_schema)
-    | prompt
-    | llm
-    | StrOutputParser()
-  )
-    
+    def openai_completion(prompt_text):
+        response = openai.Completion.create(
+            engine="gpt-35-turbo",  # Nom du modèle déployé sur Azure
+            prompt=prompt_text,
+            max_tokens=500,
+            temperature=0
+        )
+        return response.choices[0].text.strip()
+
+    def get_schema(_):
+        return db.get_table_info()
+
+    return (
+        RunnablePassthrough.assign(schema=get_schema)
+        | prompt
+        | openai_completion
+        | StrOutputParser()
+    )
+
 def get_response(user_query: str, db: SQLDatabase, chat_history: list):
-  sql_chain = get_sql_chain(db)
-  
-  template = """
+    sql_chain = get_sql_chain(db)
+    
+    template = """
     You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
     Based on the table schema below, question, sql query, and sql response, write a natural language response.
     <SCHEMA>{schema}</SCHEMA>
@@ -62,38 +75,44 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
     SQL Query: <SQL>{query}</SQL>
     User question: {question}
     SQL Response: {response}"""
-  
-  prompt = ChatPromptTemplate.from_template(template)
-  
-  # llm = ChatOpenAI(model="gpt-4-0125-preview")
-  llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
-  
-  chain = (
-    RunnablePassthrough.assign(query=sql_chain).assign(
-      schema=lambda _: db.get_table_info(),
-      response=lambda vars: db.run(vars["query"]),
-    )
-    | prompt
-    | llm
-    | StrOutputParser()
-  )
-  
-  return chain.invoke({
-    "question": user_query,
-    "chat_history": chat_history,
-  })
     
+    prompt = ChatPromptTemplate.from_template(template)
   
+    def openai_completion(prompt_text):
+        response = openai.Completion.create(
+            engine="gpt-35-turbo",  # Nom du modèle déployé sur Azure
+            prompt=prompt_text,
+            max_tokens=500,
+            temperature=0
+        )
+        return response.choices[0].text.strip()
+
+    chain = (
+        RunnablePassthrough.assign(query=sql_chain).assign(
+            schema=lambda _: db.get_table_info(),
+            response=lambda vars: db.run(vars["query"]),
+        )
+        | prompt
+        | openai_completion
+        | StrOutputParser()
+    )
+    
+    return chain.invoke({
+        "question": user_query,
+        "chat_history": chat_history,
+    })
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-      AIMessage(content="Hello! I'm a SQL assistant. Ask me anything about your database."),
+        AIMessage(content="Hallo 🤖! Ich bin dein RossmAI-Chat-Assistent 😃. Fragen Sie mich einige Informationen über Ihr Kolleg."),
     ]
 
 load_dotenv()
+init_openai()  # Initialise la configuration OpenAI via Azure
 
-st.set_page_config(page_title="Chat with MySQL", page_icon=":speech_balloon:")
+st.set_page_config(page_title="RossmAi", page_icon=":speech_balloon:")
 
-st.title("Chat with MySQL")
+st.title("Chat mit RossmAi")
 
 with st.sidebar:
     st.subheader("Settings")
