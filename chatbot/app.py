@@ -8,6 +8,13 @@ import openai
 import streamlit as st
 import os
 
+#Database configuration
+user=os.getenv("DATABASE_USER")
+password=os.getenv("DATABASE_PASSWORD")
+host= os.getenv("DATABASE_HOST")
+port= os.getenv("DATABASE_PORT")
+database_name= os.getenv("DATABASE_NAME")
+
 def init_database(user: str, password: str, host: str, port: str, database: str) -> SQLDatabase:
     db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
     return SQLDatabase.from_uri(db_uri)
@@ -109,12 +116,8 @@ if "chat_history" not in st.session_state:
 
 load_dotenv()
 init_openai()  # Initialise la configuration OpenAI via Azure
-user=os.getenv("DATABASE_USER")
-password=os.getenv("DATABASE_PASSWORD")
-host= os.getenv("DATABASE_HOST")
-port= os.getenv("DATABASE_PORT")
-database_name= os.getenv("DATABASE_NAME")
-init_database(user, password,host , port , database_name)
+
+#init_database(user, password,host , port , database_name)
 
 st.set_page_config(page_title="RossmAi", page_icon=":speech_balloon:")
 
@@ -124,11 +127,11 @@ with st.sidebar:
     st.subheader("Settings")
     st.write("This is a simple chat application using MySQL. Connect to the database and start chatting.")
     
-    st.text_input("Host", value="localhost", key="Host")
-    st.text_input("Port", value="3306", key="Port")
-    st.text_input("User", value="root", key="User")
-    st.text_input("Password", type="password", value="admin", key="Password")
-    st.text_input("Database", value="Chinook", key="Database")
+    st.text_input("Host", value=host, key="Host")
+    st.text_input("Port", value=port, key="Port")
+    st.text_input("User", value=user, key="User")
+    st.text_input("Password", type='password', value="admin", key="Password")
+    st.text_input("Database", value=database_name, key="Database")
     
     if st.button("Connect"):
         with st.spinner("Connecting to database..."):
