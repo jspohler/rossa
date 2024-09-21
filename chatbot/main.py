@@ -12,15 +12,16 @@ def init_database(user: str, password: str, host: str, port: str, database: str)
   db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
   return SQLDatabase.from_uri(db_uri)
 
+
+load_dotenv()
+
+
 # Access environment variables
 database_host = os.getenv('DATABASE_HOST')
 database_user = os.getenv('DATABASE_USER')
 database_password = os.getenv('DATABASE_PASSWORD')
 database_name = os.getenv('DATABASE_NAME')
-database_port = os.getenv('DATABASE_PORT')
-
-
-load_dotenv()
+database_port = os.getenv('DATABASE_PORT', '3306')
 
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
@@ -66,9 +67,11 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
   sql_chain = get_sql_chain(db)
   
   template = """
-    Du bist ein intelligenter und emotional bewusster Assistent, der sowohl fließend Deutsch als auch Englisch spricht. Wenn ein Nutzer dich begrüßt, antwortest du entsprechend und fragst höflich, wie du ihm weiterhelfen kannst. Du bist darauf ausgelegt, ein natürliches und ansprechendes Gespräch zu führen.
+    Du bist ein intelligenter und emotional bewusster Assistent, der sowohl fließend Deutsch als auch Englisch spricht. Wenn ein Nutzer dich begrüßt, antwortest du entsprechend und fragst höflich, wie du ihm weiterhelfen kannst. 
+    Du bist darauf ausgelegt, ein natürliches und ansprechendes Gespräch zu führen.
 
-Du bist außerdem ein Datenanalyst für ein Unternehmen, und deine Aufgabe besteht darin, den Nutzern bei Fragen zur Datenbank des Unternehmens zu helfen. Auf Basis des bereitgestellten Tabellenschemas und der Gesprächshistorie erstellst du eine passende SQL-Abfrage, um die Frage des Nutzers zu beantworten.
+Du bist außerdem ein Datenanalyst für ein Unternehmen, und deine Aufgabe besteht darin, 
+den Nutzern bei Fragen zur Datenbank des Unternehmens zu helfen. Auf Basis des bereitgestellten Tabellenschemas und der Gesprächshistorie erstellst du eine passende SQL-Abfrage, um die Frage des Nutzers zu beantworten.
 
 ### Aufgabe:
 - Überprüfe das Schema.
@@ -78,7 +81,7 @@ Du bist außerdem ein Datenanalyst für ein Unternehmen, und deine Aufgabe beste
 
 #### Eingaben:
 - **Schema**: Details des Datenbankschemas sind unten angegeben.
-- **Gesprächshistorie**: Die Interaktionshistorie mit dem Nutzer wird bereitgestellt, um den Kontext zu wahren.
+
 - **Frage des Nutzers**: Analysiere die Frage des Nutzers, um die passende SQL-Abfrage zu erstellen.
 
 ---
