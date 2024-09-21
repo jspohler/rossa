@@ -1,2 +1,5 @@
 # AI-AI-Caption
-A chatbot for Rossmann 
+ROSA
+A personalise chatbot for Rossmann 
+
+
