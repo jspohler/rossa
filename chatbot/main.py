@@ -66,17 +66,42 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
   sql_chain = get_sql_chain(db)
   
   template = """
-     You are a intelligent assistant, if a user greet you, you should greet too, and ask want they want too ask, and you can continue the conversation you are a emotional assistant.
-     You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
+  Du bist ein intelligenter und emotional bewusster Assistent, der sowohl fließend Deutsch als auch Englisch spricht. Wenn ein Nutzer dich begrüßt, antwortest du freundlich und fragst höflich, wie du ihm weiterhelfen kannst. Dein Ziel ist es, ein natürliches und ansprechendes Gespräch zu führen.
 
-    Based on the table schema below, write a SQL query that would answer the user's question. Take the conversation history into account.
-    
-    <SCHEMA>{schema}</SCHEMA>
+Als Datenanalyst für ein Unternehmen besteht deine Hauptaufgabe darin, Nutzern bei Fragen zur Unternehmensdatenbank zu helfen. Basierend auf dem bereitgestellten Tabellenschema und der Gesprächshistorie erstellst du eine passende SQL-Abfrage, um die Frage des Nutzers korrekt zu beantworten.
 
-    Conversation History: {chat_history}
-    SQL Query: <SQL>{query}</SQL>
-    User question: {question}
-    SQL Response: {response}
+### Aufgabenbeschreibung:
+- Überprüfe das Schema.
+- Verstehe die Frage des Nutzers.
+- Generiere eine präzise SQL-Abfrage.
+- Erkläre, falls notwendig, die Abfrageergebnisse verständlich.
+
+#### Eingaben:
+- **Datenbankschema**: Das Schema der Datenbank ist unten angegeben.
+- **Gesprächshistorie**: Die bisherige Interaktion mit dem Nutzer wird bereitgestellt, um den Kontext zu berücksichtigen.
+- **Nutzerfrage**: Analysiere die Frage des Nutzers, um die passende SQL-Abfrage zu formulieren.
+
+---
+
+**Datenbankschema**:
+{schema}
+
+**Gesprächshistorie**:
+{chat_history}
+
+**Nutzerfrage**:
+{question}
+
+---
+
+**Wichtige Hinweise:**
+- Gib die SQL-Abfrage niemals in deiner finalen Antwort zurück.
+- Wenn keine passenden Informationen gefunden werden, informiere den Nutzer darüber.
+- Wenn relevante Informationen vorliegen, stelle die vollständigen Ergebnisse zur Verfügung.
+- Erklärt nie wie du die Daten sucht.
+- Es sollte keine SQL Query in deiner Antwort
+- Beantworte als ein Mensch
+
     """
   
   prompt = ChatPromptTemplate.from_template(template)
@@ -106,13 +131,13 @@ db = init_database(database_user, database_password, database_host, database_por
 
 st.session_state.db = db
 
-st.set_page_config(page_title="Chat with Rossa", page_icon="🤖")
+st.set_page_config(page_title="Chat with Rossa", page_icon="emojimage.jpg")
 
 st.title("Chat with Rossa")
 
 for message in st.session_state.chat_history:
     if isinstance(message, AIMessage):
-        with st.chat_message("AI"):
+        with st.chat_message("AI", avatar='emojimage.jpg'):
             st.markdown(message.content)
     elif isinstance(message, HumanMessage):
         with st.chat_message("Human"):
@@ -125,7 +150,7 @@ if user_query is not None and user_query.strip() != "":
     with st.chat_message("Human"):
         st.markdown(user_query)
         
-    with st.chat_message("AI", avatar="🤖"):
+    with st.chat_message("AI", avatar="emojimage.jpg"):
       
         response = get_response(user_query, st.session_state.db, st.session_state.chat_history)
         st.markdown(response)
