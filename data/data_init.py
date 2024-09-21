@@ -8,8 +8,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Load the data from Excel
-file_path = 'KI-HackathonxROSSMANN_Challenge_Ansprechpartner-Chatbot.xlsx'
+file_path = 'data.xlsx'
 df = pd.read_excel(file_path)
+
+# Replace NaN values with an appropriate value for your schema, here using empty strings
+df.fillna('', inplace=True)
 
 # Database connection parameters from .env file
 config = {
@@ -17,98 +20,47 @@ config = {
     'password': os.getenv('DATABASE_PASSWORD'),
     'host': os.getenv('DATABASE_HOST'),
     'database': os.getenv('DATABASE_NAME'),
-    'port': int(os.getenv('DATABASE_PORT', '3306')),  # Provide a default value or ensure the .env has it
+    'port': int(os.getenv('DATABASE_PORT', '3306')),
     'raise_on_warnings': True
 }
 
-# SQL statements to create tables
-TABLES = {}
-TABLES['departments'] = (
-    "CREATE TABLE IF NOT EXISTS departments ("
-    "  DepartmentID INT AUTO_INCREMENT PRIMARY KEY,"
-    "  DepartmentName VARCHAR(255) NOT NULL"
-    ")"
-)
+# Sanitize column names to be compliant with MySQL naming (replace spaces and dashes)
+df.columns = [c.replace(' ', '_').replace('-', '_') for c in df.columns]
 
-TABLES['positions'] = (
-    "CREATE TABLE IF NOT EXISTS positions ("
-    "  PositionID INT AUTO_INCREMENT PRIMARY KEY,"
-    "  Title VARCHAR(255) NOT NULL,"
-    "  Description TEXT"
-    ")"
-)
+# SQL statement to create a table with backticks around column names
+column_definitions = ', '.join(f"`{col}` TEXT" for col in df.columns)  # Assuming all columns as TEXT for simplicity
+CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS employee_data ({column_definitions})"
 
-TABLES['employees'] = (
-    "CREATE TABLE IF NOT EXISTS employees ("
-    "  EmployeeID INT AUTO_INCREMENT PRIMARY KEY,"
-    "  Name VARCHAR(255) NOT NULL,"
-    "  Email VARCHAR(255),"
-    "  Phone VARCHAR(50),"
-    "  Location VARCHAR(255),"
-    "  DepartmentID INT,"
-    "  PositionID INT,"
-    "  FOREIGN KEY (DepartmentID) REFERENCES departments(DepartmentID),"
-    "  FOREIGN KEY (PositionID) REFERENCES positions(PositionID)"
-    ")"
-)
+def create_table(cursor):
+    try:
+        cursor.execute(CREATE_TABLE_QUERY)
+        print("Table created successfully")
+    except Error as err:
+        print("Failed to create table:", err)
 
-TABLES['responsibilities'] = (
-    "CREATE TABLE IF NOT EXISTS responsibilities ("
-    "  ResponsibilityID INT AUTO_INCREMENT PRIMARY KEY,"
-    "  Description TEXT"
-    ")"
-)
-
-TABLES['programs'] = (
-    "CREATE TABLE IF NOT EXISTS programs ("
-    "  ProgramID INT AUTO_INCREMENT PRIMARY KEY,"
-    "  ProgramName VARCHAR(255) NOT NULL"
-    ")"
-)
-
-TABLES['employee_responsibilities'] = (
-    "CREATE TABLE IF NOT EXISTS employee_responsibilities ("
-    "  EmployeeID INT,"
-    "  ResponsibilityID INT,"
-    "  FOREIGN KEY (EmployeeID) REFERENCES employees(EmployeeID),"
-    "  FOREIGN KEY (ResponsibilityID) REFERENCES responsibilities(ResponsibilityID)"
-    ")"
-)
-
-TABLES['employee_programs'] = (
-    "CREATE TABLE IF NOT EXISTS employee_programs ("
-    "  EmployeeID INT,"
-    "  ProgramID INT,"
-    "  FOREIGN KEY (EmployeeID) REFERENCES employees(EmployeeID),"
-    "  FOREIGN KEY (ProgramID) REFERENCES programs(ProgramID)"
-    ")"
-)
-
-def create_tables(cursor, tables):
-    for table_name in tables:
-        table_description = tables[table_name]
-        try:
-            print(f"Creating table {table_name}: ", end='')
-            cursor.execute(table_description)
-            print("OK")
-        except Error as err:
-            print(err.msg)
+def insert_data(cursor, df):
+    # Prepare a SQL query to insert data into the table, with backticks
+    placeholders = ', '.join(['%s'] * len(df.columns))
+    columns = ', '.join(f"`{col}`" for col in df.columns)
+    sql = f"INSERT INTO employee_data ({columns}) VALUES ({placeholders})"
+    
+    # Insert data row by row
+    for i, row in df.iterrows():
+        cursor.execute(sql, tuple(row.values))
 
 def main():
-    conn = None  # Initialize conn to None
+    conn = None
     try:
         conn = mysql.connector.connect(**config)
         if conn.is_connected():
             print('Connected to MySQL database')
             cursor = conn.cursor()
-
-            # Create tables
-            create_tables(cursor, TABLES)
-
-            # Insert data into tables
-            # Example: You will need to modify this to correctly map data from your Excel file to the appropriate tables
-            # for i, row in df.iterrows():
-            #     cursor.execute('INSERT INTO departments (DepartmentName) VALUES (%s)', (row['Abteilung'],))
+            
+            # Create table
+            create_table(cursor)
+            
+            # Insert data into table
+            insert_data(cursor, df)
             
             conn.commit()
             cursor.close()
