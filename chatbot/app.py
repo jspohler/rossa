@@ -19,6 +19,19 @@ def init_database(user: str, password: str, host: str, port: str, database: str)
     db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
     return SQLDatabase.from_uri(db_uri)
 
+# Validate SQL query
+def is_valid_sql(query):
+    # Basic check for SQL keywords
+    sql_keywords = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'FROM', 'WHERE', 'JOIN', 'ORDER BY', 'GROUP BY', 'LIMIT']
+    
+    # Clean and check query, ensuring no Python objects or metadata are present
+    query_clean = query.strip().upper()
+    
+    # Return True if valid SQL, False otherwise
+    if any(keyword in query_clean for keyword in sql_keywords) and not re.search(r'[{}()=]|AIMessage', query):
+        return True
+    return False
+
 # Azure OpenAI client initialization
 def init_openai():
     openai.api_type = "azure"
@@ -28,30 +41,26 @@ def init_openai():
 
 def get_sql_chain(db):
     template = """
-    You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
-    Based on the table schema below, write a SQL query that would answer the user's question. Take the conversation history into account.
-    
+    Du bist ein Datenanalyst in einem Unternehmen. Du interagierst mit einem Benutzer, der dir Fragen zur Unternehmensdatenbank stellt.
+    Basierend auf dem unten angegebenen Tabellenschema, schreibe eine SQL-Abfrage, die die Frage des Benutzers beantwortet. 
+    Antworte nur mit der SQL-Abfrage und füge keine zusätzlichen Zeichen, Metadaten oder Kommentare hinzu.
+
     <SCHEMA>{schema}</SCHEMA>
-    
-    Conversation History: {chat_history}
-    
-    Write only the SQL query and nothing else. Do not wrap the SQL query in any other text, not even backticks.
-    
-    For example:
-    Question: which 3 artists have the most tracks?
-    SQL Query: SELECT ArtistId, COUNT(*) as track_count FROM Track GROUP BY ArtistId ORDER BY track_count DESC LIMIT 3;
-    Question: Name 10 artists
-    SQL Query: SELECT Name FROM Artist LIMIT 10;
-    
-    Your turn:
-    
-    Question: {question}
-    SQL Query:
+
+    Gesprächsverlauf: {chat_history}
+
+    Frage: {question}
+    SQL-Abfrage:
     """
     
     prompt = ChatPromptTemplate.from_template(template)
   
-    def openai_completion(prompt_text):
+    def openai_completion(prompt_value):
+        if isinstance(prompt_value, ChatPromptTemplate):
+            prompt_text = prompt_value.format()
+        else:
+            prompt_text = str(prompt_value)
+
         response = openai.Completion.create(
             engine="gpt-35-turbo",  # Nom du modèle déployé sur Azure
             prompt=prompt_text,
@@ -73,68 +82,46 @@ def get_sql_chain(db):
 def get_response(user_query: str, db: SQLDatabase, chat_history: list):
     sql_chain = get_sql_chain(db)
     
-    template = """
-    You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
-    Based on the table schema below, question, sql query, and sql response, write a natural language response.
-    <SCHEMA>{schema}</SCHEMA>
-
-    Conversation History: {chat_history}
-    SQL Query: <SQL>{query}</SQL>
-    User question: {question}
-    SQL Response: {response}"""
-    
-    prompt = ChatPromptTemplate.from_template(template)
-  
-    def openai_completion(prompt_text):
-        response = openai.Completion.create(
-            engine="gpt-35-turbo",  # Nom du modèle déployé sur Azure
-            prompt=prompt_text,
-            max_tokens=500,
-            temperature=0
-        )
-        return response.choices[0].text.strip()
-
-    chain = (
-        RunnablePassthrough.assign(query=sql_chain).assign(
-            schema=lambda _: db.get_table_info(),
-            response=lambda vars: db.run(vars["query"]),
-        )
-        | prompt
-        | openai_completion
-        | StrOutputParser()
-    )
-    
-    return chain.invoke({
+    response = sql_chain.invoke({
         "question": user_query,
         "chat_history": chat_history,
     })
+    
+    # Check if the output is a valid SQL query
+    if is_valid_sql(response):
+        try:
+            # If valid SQL, run it against the database
+            return db.run(response)
+        except Exception as e:
+            return f"Fehler bei der SQL-Abfrage: {str(e)}"
+    else:
+        # Return an error message if the query is invalid
+        return "Die generierte Ausgabe ist keine gültige SQL-Abfrage."
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        AIMessage(content="Hallo 🤖! Ich bin dein RossmAI-Chat-Assistent 😃. Fragen Sie mich einige Informationen über Ihr Kolleg."),
+        AIMessage(content="Hallo! Ich bin ein SQL-Assistent. Frag mich alles über deine Datenbank."),
     ]
 
 load_dotenv()
-init_openai()  # Initialise la configuration OpenAI via Azure
+init_openai()  # Initialise Azure OpenAI
 
-#init_database(user, password,host , port , database_name)
+st.set_page_config(page_title="Chat with MySQL", page_icon=":speech_balloon:")
 
-st.set_page_config(page_title="RossmAi", page_icon=":speech_balloon:")
-
-st.title("Chat mit RossmAi")
+st.title("Chat mit MySQL")
 
 with st.sidebar:
-    st.subheader("Settings")
-    st.write("This is a simple chat application using MySQL. Connect to the database and start chatting.")
+    st.subheader("Einstellungen")
+    st.write("Dies ist eine einfache Chat-Anwendung zur Interaktion mit einer MySQL-Datenbank. Verbinde dich mit der Datenbank und stelle Fragen.")
     
-    st.text_input("Host", value=host, key="Host")
-    st.text_input("Port", value=port, key="Port")
-    st.text_input("User", value=user, key="User")
-    st.text_input("Password", type='password', value="admin", key="Password")
-    st.text_input("Database", value=database_name, key="Database")
+    st.text_input("Host", value="localhost", key="Host")
+    st.text_input("Port", value="3306", key="Port")
+    st.text_input("User", value="root", key="User")
+    st.text_input("Password", type="password", value="admin", key="Password")
+    st.text_input("Database", value="Chinook", key="Database")
     
-    if st.button("Connect"):
-        with st.spinner("Connecting to database..."):
+    if st.button("Verbinden"):
+        with st.spinner("Verbinde mit der Datenbank..."):
             db = init_database(
                 st.session_state["User"],
                 st.session_state["Password"],
@@ -143,7 +130,7 @@ with st.sidebar:
                 st.session_state["Database"]
             )
             st.session_state.db = db
-            st.success("Connected to database!")
+            st.success("Erfolgreich mit der Datenbank verbunden!")
     
 for message in st.session_state.chat_history:
     if isinstance(message, AIMessage):
@@ -153,7 +140,7 @@ for message in st.session_state.chat_history:
         with st.chat_message("Human"):
             st.markdown(message.content)
 
-user_query = st.chat_input("Type a message...")
+user_query = st.chat_input("Schreibe eine Nachricht...")
 if user_query is not None and user_query.strip() != "":
     st.session_state.chat_history.append(HumanMessage(content=user_query))
     
