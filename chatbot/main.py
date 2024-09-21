@@ -6,7 +6,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 import streamlit as st
-import openai
+
 
 def init_database(user: str, password: str, host: str, port: str, database: str) -> SQLDatabase:
   db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
@@ -71,7 +71,6 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
   prompt = ChatPromptTemplate.from_template(template)
   
   llm = ChatOpenAI(model="gpt-3.5-turbo")
- # llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
   
   chain = (
     RunnablePassthrough.assign(query=sql_chain).assign(
