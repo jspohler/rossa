@@ -91,7 +91,7 @@ if "chat_history" not in st.session_state:
 
 load_dotenv()
 
-st.set_page_config(page_title="Chat with MySQL", page_icon=":speech_balloon:")
+st.set_page_config(page_title="Chat with MySQL", page_icon=":rossman_icon_Evl_2.ico:")
 
 st.title("Chat with MySQL")
 
