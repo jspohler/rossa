@@ -1,8 +1,8 @@
-# AI-AI-Caption 
+# AI-AI-Captn 
 
 ![rossa](https://github.com/SMohabey/AI-AI-Caption/blob/main/rossa.png)
 
-A personalise internal chatbot for Rossmann
+A personalised internal chatbot for Rossmann as the result of the Ai-Ai-Captn Hackathon of the Digital Industry Hub Bremen. I contributed in form of prompt engineering, testing and transforming the provided excel sheet into a database.
 
 
 # Chatbot Setup Guide
